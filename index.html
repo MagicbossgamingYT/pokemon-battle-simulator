@@ -5,108 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Pokémon Battle Simulator</title>
     <style>
+        /* Basic Styling */
         body {
             font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background-color: #f0f8ff;
+            text-align: center;
+            background-color: #f5f5f5;
         }
-
         #battle-container {
-            text-align: center;
-            background-color: white;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-            width: 600px;
+            width: 80%;
+            margin: auto;
         }
-
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #ffcc00;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #ff9900;
-        }
-
-        #pokemon-selection,
-        #battle-log {
-            margin-bottom: 20px;
-        }
-
-        #battle-log ul {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        #battle-log li {
-            margin: 5px 0;
-        }
-
         .health-bar {
-            width: 100%;
             height: 20px;
-            background-color: #e0e0e0;
-            border-radius: 10px;
-            margin-bottom: 10px;
+            background-color: red;
+            width: 100%;
         }
-
         .health-bar-inner {
+            background-color: green;
             height: 100%;
-            border-radius: 10px;
-            transition: width 0.3s;
-        }
-
-        #pokemon-info {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-
-        #player-pokemon,
-        #enemy-pokemon {
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 10px;
-            width: 45%;
-            text-align: center;
-        }
-
-        #player-pokemon img,
-        #enemy-pokemon img {
-            width: 100px;
-            height: 100px;
-        }
-
-        @media (max-width: 600px) {
-            #battle-container {
-                width: 90%;
-            }
-
-            #pokemon-info {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            #player-pokemon,
-            #enemy-pokemon {
-                width: 80%;
-                margin-bottom: 20px;
-            }
         }
     </style>
 </head>
@@ -168,12 +84,12 @@
 
     <script>
         class Pokemon {
-            constructor(name, health, attack, move, ability, item, sprite, types) {
+            constructor(name, health, attack, moves, ability, item, sprite, types) {
                 this.name = name;
                 this.health = health;
                 this.maxHealth = health;
                 this.attack = attack;
-                this.move = move;
+                this.moves = moves; // List of moves
                 this.ability = ability;
                 this.item = item;
                 this.sprite = sprite;
@@ -200,19 +116,30 @@
             getHealthPercentage() {
                 return (this.health / this.maxHealth) * 100;
             }
+
+            applyTypeEffectiveness(otherPokemon) {
+                let effectiveness = 1;
+                for (const type of this.types) {
+                    if (typeAdvantages[type] && typeAdvantages[type].includes(otherPokemon.types[0])) {
+                        effectiveness *= 2; // Super effective
+                    }
+                }
+                return effectiveness;
+            }
         }
 
         const typeAdvantages = {
             "fire": ["grass", "bug", "ice"],
             "water": ["fire", "ground", "rock"],
             "electric": ["water", "flying"],
+            // Add more types as needed
         };
 
         const moves = {
-            thunderbolt: 30,
-            flamethrower: 40,
-            vinewhip: 25,
-            watergun: 20,
+            thunderbolt: { damage: 30, type: "electric" },
+            flamethrower: { damage: 40, type: "fire" },
+            vinewhip: { damage: 25, type: "grass" },
+            watergun: { damage: 20, type: "water" },
         };
 
         let pokemonList = {};
@@ -236,9 +163,9 @@
                         const shiny = document.getElementById("shiny-select").checked ? 'shiny/' : '';
                         pokemonList[pokemon.name] = new Pokemon(
                             pokemon.name,
-                            pokemonData.stats[0].base_stat,
-                            pokemonData.stats[1].base_stat,
-                            "thunderbolt", // Default move
+                            pokemonData.stats[0].base_stat, // Health stat
+                            pokemonData.stats[1].base_stat, // Attack stat
+                            ["thunderbolt", "flamethrower", "vinewhip", "watergun"], // Default moves
                             pokemonData.abilities[0].ability.name,
                             "none",
                             `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny}${pokemonData.id}.png`,
@@ -256,7 +183,7 @@
             const movesSelect = document.getElementById("move-select");
             movesSelect.innerHTML = "";
 
-            const availableMoves = ["thunderbolt", "flamethrower", "vinewhip", "watergun"];
+            const availableMoves = pokemonList[pokemonName].moves;
             availableMoves.forEach(move => {
                 const option = document.createElement("option");
                 option.value = move;
@@ -300,8 +227,10 @@
             let winner = null;
 
             while (!playerPokemon.isFainted() && !enemyPokemon.isFainted()) {
+                // Player's move
                 log.push(`${playerPokemon.name} uses ${playerPokemon.move}!`);
-                let damage = moves[playerPokemon.move];
+                let damage = moves[playerPokemon.move].damage;
+                damage *= playerPokemon.applyTypeEffectiveness(enemyPokemon); // Apply type advantage
                 enemyPokemon.takeDamage(damage);
                 log.push(`${enemyPokemon.name} takes damage: ${damage}`);
 
@@ -311,8 +240,10 @@
                     break;
                 }
 
+                // Enemy's move
                 log.push(`${enemyPokemon.name} uses ${enemyPokemon.move}!`);
-                damage = moves[enemyPokemon.move];
+                damage = moves[enemyPokemon.move].damage;
+                damage *= enemyPokemon.applyTypeEffectiveness(playerPokemon); // Apply type advantage
                 playerPokemon.takeDamage(damage);
                 log.push(`${playerPokemon.name} takes damage: ${damage}`);
 
