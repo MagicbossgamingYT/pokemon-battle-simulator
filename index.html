@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Pokémon Battle Simulator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff;
+        }
+
+        #battle-container {
+            text-align: center;
+            background-color: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            width: 600px;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #ffcc00;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #ff9900;
+        }
+
+        #pokemon-selection,
+        #battle-log {
+            margin-bottom: 20px;
+        }
+
+        #battle-log ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        #battle-log li {
+            margin: 5px 0;
+        }
+
+        .health-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .health-bar-inner {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+
+        #pokemon-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        #player-pokemon,
+        #enemy-pokemon {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            width: 45%;
+            text-align: center;
+        }
+
+        #player-pokemon img,
+        #enemy-pokemon img {
+            width: 100px;
+            height: 100px;
+        }
+
+        @media (max-width: 600px) {
+            #battle-container {
+                width: 90%;
+            }
+
+            #pokemon-info {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            #player-pokemon,
+            #enemy-pokemon {
+                width: 80%;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="battle-container">
+        <h1>Advanced Pokémon Battle Simulator</h1>
+        <div id="pokemon-selection">
+            <h3>Select Your Pokémon:</h3>
+            <select id="pokemon-select"></select>
+
+            <h3>Select Your Ability:</h3>
+            <select id="ability-select">
+                <option value="static">Static</option>
+                <option value="blaze">Blaze</option>
+                <option value="overgrow">Overgrow</option>
+                <option value="torrent">Torrent</option>
+            </select>
+
+            <h3>Select Your Move:</h3>
+            <select id="move-select"></select>
+
+            <h3>Select an Item:</h3>
+            <select id="item-select">
+                <option value="none">No Item</option>
+                <option value="potion">Potion (+20 HP)</option>
+                <option value="attack-boost">Attack Boost (+10 Attack)</option>
+            </select>
+
+            <h3>Shiny Pokémon?</h3>
+            <label><input type="checkbox" id="shiny-select"> Shiny</label>
+
+            <button id="start-battle">Start Battle</button>
+        </div>
+
+        <div id="battle-info" style="display: none;">
+            <div id="pokemon-info">
+                <div id="player-pokemon">
+                    <h3>Player's Pokémon</h3>
+                    <p id="player-name"></p>
+                    <img id="player-sprite" src="" alt="Player Pokémon Sprite">
+                    <div id="player-health-bar" class="health-bar"></div>
+                    <p id="player-move"></p>
+                </div>
+                <div id="enemy-pokemon">
+                    <h3>Enemy's Pokémon</h3>
+                    <p id="enemy-name"></p>
+                    <img id="enemy-sprite" src="" alt="Enemy Pokémon Sprite">
+                    <div id="enemy-health-bar" class="health-bar"></div>
+                    <p id="enemy-move"></p>
+                </div>
+            </div>
+            <button id="battle-button">Battle!</button>
+            <div id="battle-log">
+                <h2>Battle Log</h2>
+                <ul id="log"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class Pokemon {
+            constructor(name, health, attack, move, ability, item, sprite, types) {
+                this.name = name;
+                this.health = health;
+                this.maxHealth = health;
+                this.attack = attack;
+                this.move = move;
+                this.ability = ability;
+                this.item = item;
+                this.sprite = sprite;
+                this.types = types || [];
+            }
+
+            useItem() {
+                if (this.item === "potion") {
+                    this.health = Math.min(this.health + 20, this.maxHealth);
+                } else if (this.item === "attack-boost") {
+                    this.attack += 10;
+                }
+            }
+
+            takeDamage(damage) {
+                this.health -= damage;
+                if (this.health < 0) this.health = 0;
+            }
+
+            isFainted() {
+                return this.health <= 0;
+            }
+
+            getHealthPercentage() {
+                return (this.health / this.maxHealth) * 100;
+            }
+        }
+
+        const typeAdvantages = {
+            "fire": ["grass", "bug", "ice"],
+            "water": ["fire", "ground", "rock"],
+            "electric": ["water", "flying"],
+        };
+
+        const moves = {
+            thunderbolt: 30,
+            flamethrower: 40,
+            vinewhip: 25,
+            watergun: 20,
+        };
+
+        let pokemonList = {};
+        let playerPokemon;
+        let enemyPokemon;
+
+        async function loadPokemonList() {
+            const response = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+            const data = await response.json();
+            const pokemonSelect = document.getElementById("pokemon-select");
+
+            data.results.forEach(pokemon => {
+                const option = document.createElement("option");
+                option.value = pokemon.name;
+                option.textContent = capitalize(pokemon.name);
+                pokemonSelect.appendChild(option);
+
+                fetch(pokemon.url)
+                    .then(res => res.json())
+                    .then(pokemonData => {
+                        const shiny = document.getElementById("shiny-select").checked ? 'shiny/' : '';
+                        pokemonList[pokemon.name] = new Pokemon(
+                            pokemon.name,
+                            pokemonData.stats[0].base_stat,
+                            pokemonData.stats[1].base_stat,
+                            "thunderbolt", // Default move
+                            pokemonData.abilities[0].ability.name,
+                            "none",
+                            `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${shiny}${pokemonData.id}.png`,
+                            pokemonData.types.map(type => type.type.name)
+                        );
+                    });
+            });
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function loadMoves(pokemonName) {
+            const movesSelect = document.getElementById("move-select");
+            movesSelect.innerHTML = "";
+
+            const availableMoves = ["thunderbolt", "flamethrower", "vinewhip", "watergun"];
+            availableMoves.forEach(move => {
+                const option = document.createElement("option");
+                option.value = move;
+                option.textContent = capitalize(move);
+                movesSelect.appendChild(option);
+            });
+        }
+
+        function updatePokemonStats() {
+            document.getElementById("player-name").innerText = `${playerPokemon.name} (HP: ${playerPokemon.health})`;
+            document.getElementById("player-move").innerText = `Move: ${capitalize(playerPokemon.move)}`;
+            document.getElementById("enemy-name").innerText = `${enemyPokemon.name} (HP: ${enemyPokemon.health})`;
+            document.getElementById("enemy-move").innerText = `Move: ${capitalize(enemyPokemon.move)}`;
+            document.getElementById("player-sprite").src = playerPokemon.sprite;
+            document.getElementById("enemy-sprite").src = enemyPokemon.sprite;
+            document.getElementById("player-health-bar").innerHTML = `<div class="health-bar-inner" style="width: ${playerPokemon.getHealthPercentage()}%"></div>`;
+            document.getElementById("enemy-health-bar").innerHTML = `<div class="health-bar-inner" style="width: ${enemyPokemon.getHealthPercentage()}%"></div>`;
+        }
+
+        function startBattle() {
+            const selectedPokemon = document.getElementById("pokemon-select").value;
+            const selectedAbility = document.getElementById("ability-select").value;
+            const selectedMove = document.getElementById("move-select").value;
+            const selectedItem = document.getElementById("item-select").value;
+
+            playerPokemon = pokemonList[selectedPokemon];
+            playerPokemon.ability = selectedAbility;
+            playerPokemon.move = selectedMove;
+            playerPokemon.item = selectedItem;
+            playerPokemon.useItem();
+
+            enemyPokemon = pokemonList[Object.keys(pokemonList)[Math.floor(Math.random() * Object.keys(pokemonList).length)]];
+
+            document.getElementById("pokemon-selection").style.display = "none";
+            document.getElementById("battle-info").style.display = "block";
+            updatePokemonStats();
+        }
+
+        document.getElementById("battle-button").addEventListener("click", function () {
+            let log = [];
+            let winner = null;
+
+            while (!playerPokemon.isFainted() && !enemyPokemon.isFainted()) {
+                log.push(`${playerPokemon.name} uses ${playerPokemon.move}!`);
+                let damage = moves[playerPokemon.move];
+                enemyPokemon.takeDamage(damage);
+                log.push(`${enemyPokemon.name} takes damage: ${damage}`);
+
+                if (enemyPokemon.isFainted()) {
+                    log.push(`${enemyPokemon.name} has fainted!`);
+                    winner = "Player";
+                    break;
+                }
+
+                log.push(`${enemyPokemon.name} uses ${enemyPokemon.move}!`);
+                damage = moves[enemyPokemon.move];
+                playerPokemon.takeDamage(damage);
+                log.push(`${playerPokemon.name} takes damage: ${damage}`);
+
+                if (playerPokemon.isFainted()) {
+                    log.push(`${playerPokemon.name} has fainted!`);
+                    winner = "Enemy";
+                    break;
+                }
+
+                updatePokemonStats();
+            }
+
+            document.getElementById("log").innerHTML = log.map(item => `<li>${item}</li>`).join('');
+            alert(winner === "Player" ? "You win!" : "You lose!");
+        });
+
+        loadPokemonList();
+    </script>
+</body>
+</html>
