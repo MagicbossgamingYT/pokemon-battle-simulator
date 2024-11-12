@@ -209,12 +209,18 @@
             const selectedMove = document.getElementById("move-select").value;
             const selectedItem = document.getElementById("item-select").value;
 
+            if (!selectedMove) {
+                alert("Please select a move!");
+                return; // Stop the battle if no move is selected
+            }
+
             playerPokemon = pokemonList[selectedPokemon];
             playerPokemon.ability = selectedAbility;
-            playerPokemon.move = selectedMove;
+            playerPokemon.move = selectedMove; // Store the move correctly
             playerPokemon.item = selectedItem;
             playerPokemon.useItem();
 
+            // Randomly select an enemy Pokémon
             enemyPokemon = pokemonList[Object.keys(pokemonList)[Math.floor(Math.random() * Object.keys(pokemonList).length)]];
 
             document.getElementById("pokemon-selection").style.display = "none";
@@ -228,7 +234,7 @@
 
             while (!playerPokemon.isFainted() && !enemyPokemon.isFainted()) {
                 // Player's move
-                log.push(`${playerPokemon.name} uses ${playerPokemon.move}!`);
+                log.push(`${playerPokemon.name} uses ${capitalize(playerPokemon.move)}!`);
                 let damage = moves[playerPokemon.move].damage;
                 damage *= playerPokemon.applyTypeEffectiveness(enemyPokemon); // Apply type advantage
                 enemyPokemon.takeDamage(damage);
@@ -241,7 +247,7 @@
                 }
 
                 // Enemy's move
-                log.push(`${enemyPokemon.name} uses ${enemyPokemon.move}!`);
+                log.push(`${enemyPokemon.name} uses ${capitalize(enemyPokemon.move)}!`);
                 damage = moves[enemyPokemon.move].damage;
                 damage *= enemyPokemon.applyTypeEffectiveness(playerPokemon); // Apply type advantage
                 playerPokemon.takeDamage(damage);
